@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>French Flashcards - Multi-Deck Master Sync</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS library to parse Excel files (.xlsx / .xls) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-3d {
+      transform-style: preserve-3d;
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+    /* Custom scrollbar for compact multi-line card back */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 md:p-8 font-sans">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-2xl flex flex-col items-center gap-6">
+
+    <!-- Header Section -->
+    <header class="text-center space-y-1">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">French Flashcards</h1>
+      <p class="text-xs text-slate-500 font-medium">Upload master French & English Excel files to auto-generate sheet decks</p>
+    </header>
+
+    <!-- Master Upload Inputs (Option A) -->
+    <div class="w-full bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1.5">
+        <label for="frenchMasterFile" class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+          1. French Master Excel (.xlsx)
+        </label>
+        <input type="file" id="frenchMasterFile" accept=".xlsx, .xls"
+          class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer">
+        <span id="frenchStatus" class="text-[10px] text-slate-400 italic">No file loaded</span>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="englishMasterFile" class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          2. English Master Excel (.xlsx)
+        </label>
+        <input type="file" id="englishMasterFile" accept=".xlsx, .xls"
+          class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all cursor-pointer">
+        <span id="englishStatus" class="text-[10px] text-slate-400 italic">No file loaded</span>
+      </div>
+    </div>
+
+    <!-- Sheet Tabs Header Bar -->
+    <div id="tabsContainer" class="w-full hidden">
+      <div class="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1.5 scrollbar-none" id="sheetTabsList">
+        <!-- Sheet tabs dynamically populated here -->
+      </div>
+    </div>
+
+    <!-- Flashcard Container -->
+    <div class="perspective-1000 w-full h-[320px] md:h-[300px]">
+      <div id="flashcard" onclick="flipCard()"
+        class="card transform-style-3d relative w-full h-full cursor-pointer transition-transform duration-500 ease-out rounded-2xl shadow-md border border-slate-200 bg-white hover:shadow-lg">
+        
+        <!-- FRONT: French Side -->
+        <div class="card-face backface-hidden absolute inset-0 p-6 flex flex-col justify-between items-center bg-white rounded-2xl">
+          <div class="w-full flex justify-between items-center">
+            <span class="text-[11px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+              French
+            </span>
+            <button onclick="playAudio(event)" title="Listen Pronunciation"
+              class="p-2 rounded-full bg-slate-100 hover:bg-blue-100 hover:text-blue-600 text-slate-600 transition-all focus:outline-none">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="text-center my-auto px-2">
+            <h2 id="frenchWord" class="text-2xl md:text-3xl font-extrabold text-slate-800 leading-tight">
+              Upload master files to start
+            </h2>
+          </div>
+
+          <div class="text-[11px] text-slate-400 font-medium">
+            Click card or press <kbd class="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono text-[10px]">Space</kbd> to flip
+          </div>
+        </div>
+
+        <!-- BACK: English Side (Compact multi-column layout) -->
+        <div class="card-face backface-hidden rotate-y-180 absolute inset-0 p-5 flex flex-col justify-between bg-slate-50/80 rounded-2xl">
+          <div class="w-full flex justify-between items-center border-b border-slate-200/60 pb-2">
+            <span class="text-[11px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+              English
+            </span>
+            <span id="activeDeckName" class="text-[11px] font-semibold text-slate-400 truncate max-w-[150px]">
+              No Sheet Active
+            </span>
+          </div>
+
+          <!-- Compact Multi-Column Content Area -->
+          <div id="englishLinesContainer" class="my-auto w-full max-h-[190px] overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2 py-1">
+            <p class="text-xs text-slate-400 text-center italic my-auto">Upload files to reveal translations</p>
+          </div>
+
+          <div class="text-[11px] text-slate-400 font-medium text-center border-t border-slate-200/60 pt-1.5">
+            Press <kbd class="px-1 py-0.5 bg-slate-200/60 rounded border border-slate-300 font-mono text-[10px]">&larr;</kbd> <kbd class="px-1 py-0.5 bg-slate-200/60 rounded border border-slate-300 font-mono text-[10px]">&rarr;</kbd> to navigate
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="w-full flex items-center justify-between gap-4">
+      <button id="prevBtn" onclick="prevCard()" disabled
+        class="flex-1 py-2.5 px-4 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+        &larr; Previous
+      </button>
+
+      <span id="counter" class="text-xs font-bold text-slate-500 whitespace-nowrap bg-white px-3 py-2 rounded-lg border border-slate-200">
+        0 / 0
+      </span>
+
+      <button id="nextBtn" onclick="nextCard()" disabled
+        class="flex-1 py-2.5 px-4 bg-slate-900 border border-slate-900 rounded-xl font-bold text-xs text-white shadow-sm hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+        Next &rarr;
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // State storage for Option A (Master Multi-Sheet Sync)
+    let frenchWorkbook = null;
+    let englishWorkbook = null;
+    let parsedDecks = {}; // { sheetName: { headers: [], cards: [ { french: "", englishCols: [] } ] } }
+    let activeSheetName = null;
+    let currentIndex = 0;
+    let isFlipped = false;
+
+    // File Upload Listeners
+    document.getElementById('frenchMasterFile').addEventListener('change', (e) => handleMasterFile(e, 'french'));
+    document.getElementById('englishMasterFile').addEventListener('change', (e) => handleMasterFile(e, 'english'));
+
+    function handleMasterFile(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+
+        if (type === 'french') {
+          frenchWorkbook = wb;
+          document.getElementById('frenchStatus').textContent = `Loaded (${wb.SheetNames.length} sheets)`;
+          document.getElementById('frenchStatus').className = "text-[10px] text-blue-600 font-semibold";
+        } else {
+          englishWorkbook = wb;
+          document.getElementById('englishStatus').textContent = `Loaded (${wb.SheetNames.length} sheets)`;
+          document.getElementById('englishStatus').className = "text-[10px] text-emerald-600 font-semibold";
+        }
+
+        processWorkbooks();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function processWorkbooks() {
+      if (!frenchWorkbook || !englishWorkbook) return;
+
+      parsedDecks = {};
+      const frenchSheets = frenchWorkbook.SheetNames;
+      const englishSheets = englishWorkbook.SheetNames;
+
+      // Find matching sheets by name (case-insensitive fallback)
+      frenchSheets.forEach(fSheet => {
+        const eSheetMatch = englishSheets.find(eSheet => eSheet.trim().toLowerCase() === fSheet.trim().toLowerCase());
+        
+        if (eSheetMatch) {
+          const fData = XLSX.utils.sheet_to_json(frenchWorkbook.Sheets[fSheet], { header: 1 });
+          const eData = XLSX.utils.sheet_to_json(englishWorkbook.Sheets[eSheetMatch], { header: 1 });
+
+          if (fData.length > 0 && eData.length > 0) {
+            // Row 1 of English file = Headers
+            const headers = (eData[0] || []).map(h => (h !== undefined && h !== null) ? h.toString().trim() : "");
+            
+            // Rows 2+ = Flashcard Data
+            const cards = [];
+            const maxRows = Math.max(fData.length, eData.length);
+
+            for (let r = 1; r < maxRows; r++) {
+              const fRow = fData[r] || [];
+              const eRow = eData[r] || [];
+
+              const frenchWord = fRow[0] ? fRow[0].toString().trim() : "";
+              
+              // Extract all available columns for English
+              const englishCols = [];
+              for (let c = 0; c < eRow.length; c++) {
+                if (eRow[c] !== undefined && eRow[c] !== null && eRow[c].toString().trim() !== "") {
+                  englishCols.push({
+                    colIndex: c,
+                    header: headers[c] || `Column ${c + 1}`,
+                    text: eRow[c].toString().trim()
+                  });
+                }
+              }
+
+              if (frenchWord || englishCols.length > 0) {
+                cards.push({ french: frenchWord, englishCols: englishCols });
+              }
+            }
+
+            parsedDecks[fSheet] = { headers: headers, cards: cards };
+          }
+        }
+      });
+
+      renderSheetTabs();
+    }
+
+    function renderSheetTabs() {
+      const tabsList = document.getElementById('sheetTabsList');
+      const tabsContainer = document.getElementById('tabsContainer');
+      tabsList.innerHTML = '';
+
+      const deckNames = Object.keys(parsedDecks);
+      if (deckNames.length === 0) {
+        tabsContainer.classList.add('hidden');
+        alert("No matching sheet names found between French and English files. Please ensure sheet tab names correspond.");
+        return;
+      }
+
+      tabsContainer.classList.remove('hidden');
+
+      deckNames.forEach((sheetName, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = sheetName;
+        btn.className = `px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+          idx === 0 
+            ? 'bg-blue-600 text-white shadow-sm' 
+            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+        }`;
+        btn.onclick = () => switchSheetTab(sheetName);
+        tabsList.appendChild(btn);
+      });
+
+      switchSheetTab(deckNames[0]);
+    }
+
+    function switchSheetTab(sheetName) {
+      activeSheetName = sheetName;
+      currentIndex = 0;
+
+      // Update UI button highlights
+      const tabsList = document.getElementById('sheetTabsList');
+      Array.from(tabsList.children).forEach(btn => {
+        if (btn.textContent === sheetName) {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm transition-all whitespace-nowrap';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all whitespace-nowrap';
+        }
+      });
+
+      document.getElementById('activeDeckName').textContent = sheetName;
+      renderCard();
+    }
+
+    function renderCard() {
+      const cardEl = document.getElementById('flashcard');
+      
+      // Reset flip orientation
+      isFlipped = false;
+      cardEl.classList.remove('rotate-y-180');
+
+      const currentDeck = parsedDecks[activeSheetName];
+      if (!currentDeck || currentDeck.cards.length === 0) {
+        document.getElementById('frenchWord').textContent = "No cards available";
+        document.getElementById('englishLinesContainer').innerHTML = '<p class="text-xs text-slate-400 text-center italic">No data</p>';
+        document.getElementById('counter').textContent = "0 / 0";
+        document.getElementById('prevBtn').disabled = true;
+        document.getElementById('nextBtn').disabled = true;
+        return;
+      }
+
+      const card = currentDeck.cards[currentIndex];
+
+      // Front Side (French)
+      document.getElementById('frenchWord').textContent = card.french || "—";
+
+      // Back Side (English Multi-Column Compact Layout)
+      const container = document.getElementById('englishLinesContainer');
+      container.innerHTML = '';
+
+      if (card.englishCols.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 text-center italic">No translation available</p>';
+      } else {
+        card.englishCols.forEach((item, i) => {
+          const lineDiv = document.createElement('div');
+          
+          if (i === 0) {
+            // Main Line 1 (Column A)
+            lineDiv.className = 'bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col gap-0.5';
+            lineDiv.innerHTML = `
+              <span class="text-[9px] font-bold tracking-wider uppercase text-emerald-600 bg-emerald-50 self-start px-1.5 py-0.5 rounded border border-emerald-100">
+                ${escapeHtml(item.header)}
+              </span>
+              <p class="text-sm font-bold text-slate-800 leading-snug pl-0.5">
+                ${escapeHtml(item.text)}
+              </p>
+            `;
+          } else {
+            // Subsequent Lines (Columns B, C, etc.)
+            lineDiv.className = 'bg-white/70 p-2 rounded-lg border border-slate-200/80 flex items-start gap-2 text-xs text-slate-600';
+            lineDiv.innerHTML = `
+              <span class="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 border border-slate-200/60 mt-0.5">
+                ${escapeHtml(item.header)}
+              </span>
+              <span class="leading-tight font-medium text-slate-700">
+                ${escapeHtml(item.text)}
+              </span>
+            `;
+          }
+
+          container.appendChild(lineDiv);
+        });
+      }
+
+      // Update counter and controls
+      const total = currentDeck.cards.length;
+      document.getElementById('counter').textContent = `${currentIndex + 1} / ${total}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      document.getElementById('nextBtn').disabled = currentIndex >= total - 1;
+
+      // Auto-pronounce French word
+      if (card.french) {
+        speakFrench(card.french);
+      }
+    }
+
+    function flipCard() {
+      if (!activeSheetName || !parsedDecks[activeSheetName]) return;
+      const cardEl = document.getElementById('flashcard');
+      isFlipped = !isFlipped;
+      cardEl.classList.toggle('rotate-y-180', isFlipped);
+    }
+
+    function nextCard() {
+      if (!activeSheetName || !parsedDecks[activeSheetName]) return;
+      const total = parsedDecks[activeSheetName].cards.length;
+      if (currentIndex < total - 1) {
+        currentIndex++;
+        renderCard();
+      }
+    }
+
+    function prevCard() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        renderCard();
+      }
+    }
+
+    function playAudio(event) {
+      event.stopPropagation(); // Prevents flipping card when clicking sound button
+      if (activeSheetName && parsedDecks[activeSheetName]) {
+        const card = parsedDecks[activeSheetName].cards[currentIndex];
+        if (card && card.french) {
+          speakFrench(card.french);
+        }
+      }
+    }
+
+    function speakFrench(text) {
+      if (!text || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'fr-FR';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        flipCard();
+      } else if (e.code === 'ArrowRight') {
+        nextCard();
+      } else if (e.code === 'ArrowLeft') {
+        prevCard();
+      }
+    });
+  </script>
+</body>
+</html>
